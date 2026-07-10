@@ -86,15 +86,14 @@ def recupera_statistiche_live(team_name, team_id, is_naz):
     except:
         pass
         
-    # --- SISTEMA DI FALLBACK DIFFERENZIATO SE L'API NON RISPONDE ---
-    # Evita che tutte le squadre abbiano le stesse identiche statistiche fisse
+    # --- SISTEMA DI FALLBACK CORRETTO (Risolto bug screenshot) ---
     name_lower = team_name.lower()
     
-    # Top Team (Mondiali o Serie A d'alta classifica)
+    # Top Team
     if any(top in name_lower for top in ["inter", "juventus", "milan", "atalanta", "napoli", "argentina", "francia", "brasile", "spagna", "inghilterra", "portogallo"]):
         return 2.2, 0.8
-    # Team di fascia medio-alta (es. Norvegia di Haaland, Lazio, Roma, Olanda, Croazia)
-    elif any(mid_high in name_lower for top in ["lazio", "roma", "fiorentina", "bologna", "norvegia", "olanda", "croazia", "germania", "belgio", "colombia", "uruguay"]):
+    # Team di fascia medio-alta
+    elif any(mid_high in name_lower for mid_high in ["lazio", "roma", "fiorentina", "bologna", "norvegia", "olanda", "croazia", "germania", "belgio", "colombia", "uruguay"]):
         return 1.8, 1.1
     # Team di fascia media / salvezza
     elif any(mid in name_lower for mid in ["torino", "udinese", "verona", "genoa", "parma", "cagliari", "como", "empoli", "stati uniti", "messico", "marocco", "giappone"]):
@@ -111,7 +110,6 @@ squadre_disponibili = sorted(list(DIZIONARIO_SQUADRE.keys()))
 with col1:
     squadra_casa = st.selectbox("Squadra in Casa", squadre_disponibili, index=0)
     id_casa = DIZIONARIO_SQUADRE[squadra_casa]
-    # Passiamo il nome della squadra alla funzione per attivare il fallback personalizzato
     gol_fatti_casa, gol_subiti_casa = recupera_statistiche_live(squadra_casa, id_casa, "Mondiale" in squadra_casa)
 
 with col2:
@@ -145,7 +143,7 @@ falli_attesi = falli_subiti_base * (gol_subiti_ospite / 1.0)
 if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     simulazioni = 100000
     
-    # Simulazione Risultato Esatto (Distribuzione di Poisson basata sui nuovi parametri differenziati)
+    # Simulazione Risultato Esatto (Distribuzione di Poisson)
     lambda_casa = gol_fatti_casa * (gol_subiti_ospite / 1.2)
     lambda_ospite = gol_fatti_ospite * (gol_subiti_casa / 1.2)
     gol_casa_sim = np.random.poisson(lambda_casa, simulazioni)
@@ -248,7 +246,7 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
             st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG else None, delta_color="normal")
 
     with tab2:
-        st.markdown("#### **Mercati Speciali & Combo Combo**")
+        st.markdown("#### **Mercati Speciali & Combo**")
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             st.write("**Simulazione Esito**")
