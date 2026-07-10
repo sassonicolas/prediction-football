@@ -40,7 +40,7 @@ DIZIONARIO_SQUADRE = {
     "Svizzera (Mondiale)": 15, "Tunisia (Mondiale)": 29, "Uruguay (Mondiale)": 8
 }
 
-# 3. DATABASE ARBITRI ATTUALI E INTERNAZIONALI (João Pedro Pinheiro Aggiunto!)
+# 3. DATABASE ARBITRI ATTUALI E INTERNAZIONALI
 DIZIONARIO_ARBITRI = {
     "Davide Massa (ITA)": {"media_cartellini": 5.1, "severita": "Molto Alta"},
     "Marco Guida (ITA)": {"media_cartellini": 4.2, "severita": "Media"},
@@ -57,19 +57,41 @@ DIZIONARIO_ARBITRI = {
     "João Pedro Pinheiro (POR)": {"media_cartellini": 4.9, "severita": "Alta"}
 }
 
-# 4. RECUPERO DATI LIVE CON CACHE E FALLBACK INTELLIGENTE PER SQUADRA
+# 4. RECUPERO DATI LIVE CON CACHE E FALLBACK INTELLIGENTE PER GIOCATORI
 @st.cache_data(ttl=86400)
-def recupera_giocatori_live(team_id):
+def recupera_giocatori_live(team_name, team_id):
     url = f"https://v3.football.api-sports.io/players/squads?team={team_id}"
     headers = {'x-rapidapi-key': API_KEY}
     try:
         risposta = requests.get(url, headers=headers).json()
         if risposta.get("response") and len(risposta["response"]) > 0:
             lista_calc = risposta["response"][0]["players"]
-            return [g["name"] for g in lista_calc if g["position"] in ["Attacker", "Midfielder"]]
+            giocatori = [g["name"] for g in lista_calc if g["position"] in ["Attacker", "Midfielder"]]
+            if giocatori:
+                return giocatori
     except:
         pass
-    return ["Campione Attacco 1", "Stella Centrocampo 2"]
+    
+    # --- SISTEMA DI FALLBACK SQUADRA PER SQUADRA (Aggiunta Norvegia e Top Player) ---
+    name_lower = team_name.lower()
+    if "norvegia" in name_lower:
+        return ["Erling Haaland", "Martin Ødegaard", "Antonio Nusa", "Alexander Sørloth"]
+    elif "inter" in name_lower:
+        return ["Lautaro Martínez", "Marcus Thuram", "Nicolò Barella", "Hakan Çalhanoğlu"]
+    elif "juventus" in name_lower:
+        return ["Dusan Vlahovic", "Kenan Yildiz", "Teun Koopmeiners", "Timothy Weah"]
+    elif "milan" in name_lower:
+        return ["Rafael Leão", "Alvaro Morata", "Christian Pulisic", "Tijjani Reijnders"]
+    elif "argentina" in name_lower:
+        return ["Lionel Messi", "Lautaro Martínez", "Julian Álvarez", "Rodrigo De Paul"]
+    elif "francia" in name_lower:
+        return ["Kylian Mbappé", "Antoine Griezmann", "Ousmane Dembélé", "Marcus Thuram"]
+    elif "portogallo" in name_lower:
+        return ["Cristiano Ronaldo", "Bruno Fernandes", "Rafael Leão", "Bernardo Silva"]
+    elif "inghilterra" in name_lower:
+        return ["Harry Kane", "Jude Bellingham", "Bukayo Saka", "Phil Foden"]
+    
+    return [f"Stella Attacco {team_name}", f"Chiave Centrocampo {team_name}"]
 
 @st.cache_data(ttl=86400)
 def recupera_statistiche_live(team_name, team_id, is_naz):
@@ -87,19 +109,13 @@ def recupera_statistiche_live(team_name, team_id, is_naz):
     except:
         pass
         
-    # --- SISTEMA DI FALLBACK CORRETTO ---
     name_lower = team_name.lower()
-    
-    # Top Team
     if any(top in name_lower for top in ["inter", "juventus", "milan", "atalanta", "napoli", "argentina", "francia", "brasile", "spagna", "inghilterra", "portogallo"]):
         return 2.2, 0.8
-    # Team di fascia medio-alta
     elif any(mid_high in name_lower for mid_high in ["lazio", "roma", "fiorentina", "bologna", "norvegia", "olanda", "croazia", "germania", "belgio", "colombia", "uruguay"]):
         return 1.8, 1.1
-    # Team di fascia media / salvezza
     elif any(mid in name_lower for mid in ["torino", "udinese", "verona", "genoa", "parma", "cagliari", "como", "empoli", "stati uniti", "messico", "marocco", "giappone"]):
         return 1.2, 1.4
-    # Fanalini di coda / Nazionali minori
     else:
         return 0.9, 1.8
 
@@ -130,14 +146,17 @@ with col_a:
     st.info(f"📊 **Stile di arbitraggio:** Stile {dati_arbitro['severita']} | Media: {dati_arbitro['media_cartellini']} gialli/partita")
 
 with col_g:
-    tutti_giocatori = recupera_giocatori_live(id_casa) + recupera_giocatori_live(id_ospite)
+    # Passiamo sia il nome che l'id per attivare il corretto fallback dei giocatori reali
+    lista_casa = recupera_giocatori_live(squadra_casa, id_casa)
+    lista_ospite = recupera_giocatori_live(squadra_ospite, id_ospite)
+    tutti_giocatori = lista_casa + lista_ospite
     giocatore_scelto = st.selectbox("Scegli il calciatore da monitorare:", tutti_giocatori)
 
 # Calcolo tiri e falli attesi
-tiri_base = 2.8 if giocatore_scelto in recupera_giocatori_live(id_casa) else 2.1
+tiri_base = 2.8 if giocatore_scelto in lista_casa else 2.1
 tiri_attesi = tiri_base * (gol_subiti_ospite / 1.1)
 
-falli_subiti_base = 1.9 if giocatore_scelto in recupera_giocatori_live(id_casa) else 1.6
+falli_subiti_base = 1.9 if giocatore_scelto in lista_casa else 1.6
 falli_attesi = falli_subiti_base * (gol_subiti_ospite / 1.0)
 
 # 6. ELABORAZIONE DELLE PROBABILITÀ STATISTICHE VIA SIMULAZIONE MONTE CARLO
@@ -181,98 +200,4 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
 
     # GG / NG
     p_GG = (np.sum((gol_casa_sim > 0) & (gol_ospite_sim > 0)) / simulazioni) * 100
-    p_NG = 100 - p_GG
-
-    # Casa Vince a 0
-    p_casa_vince_0 = (np.sum((gol_casa_sim > gol_ospite_sim) & (gol_ospite_sim == 0)) / simulazioni) * 100
-
-    # Multigol Totale Match
-    m_1_2 = (np.sum((tot_gol_sim >= 1) & (tot_gol_sim <= 2)) / simulazioni) * 100
-    m_2_4 = (np.sum((tot_gol_sim >= 2) & (tot_gol_sim <= 4)) / simulazioni) * 100
-    m_3_5 = (np.sum((tot_gol_sim >= 3) & (tot_gol_sim <= 5)) / simulazioni) * 100
-
-    # Multigol Squadre
-    m_c_1_2 = (np.sum((gol_casa_sim >= 1) & (gol_casa_sim <= 2)) / simulazioni) * 100
-    m_c_2_3 = (np.sum((gol_casa_sim >= 2) & (gol_casa_sim <= 3)) / simulazioni) * 100
-    m_o_1_2 = (np.sum((gol_ospite_sim >= 1) & (gol_ospite_sim <= 2)) / simulazioni) * 100
-    m_o_2_3 = (np.sum((gol_ospite_sim >= 2) & (gol_ospite_sim <= 3)) / simulazioni) * 100
-
-    # 7. DISPLAY SEZIONE RESOCONTO GENERALE
-    st.write("---")
-    c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        st.write("### 🏆 Match & Angoli")
-        st.success(f"**Top Risultato:** {risultati_ordinati[0][0]} ({(risultati_ordinati[0][1]/simulazioni)*100:.1f}%)")
-        st.success(f"**Secondo Migliore:** {risultati_ordinati[1][0]} ({(risultati_ordinati[1][1]/simulazioni)*100:.1f}%)")
-        st.write(f"Stima Corner Totali: **{angoli_attesi:.1f}**")
-        st.info(f"Probabilità Over 8.5 Angoli: **{prob_over_8_5_angoli:.1f}%**")
-        st.info(f"Probabilità Over 9.5 Angoli: **{prob_over_9_5_angoli:.1f}%**")
-        
-    with c2:
-        st.write(f"### 📈 Statistiche {giocatore_scelto}")
-        st.write(f"Falli subiti stimati: **{falli_attesi:.1f}**")
-        st.info(f"Probabilità Subisce 2+ Falli: **{prob_falli_1_5:.1f}%**")
-        
-    with c3:
-        st.write("### 🟨 Sanzioni & Cartellini")
-        st.write(f"Fischietto: *{arbitro_scelto}*")
-        st.warning(f"Probabilità Over 3.5 Cartellini: **{prob_over_3_5_cartellini:.1f}%**")
-        st.warning(f"Probabilità Over 4.5 Cartellini: **{prob_over_4_5_cartellini:.1f}%**")
-
-    # --- 8. SEZIONE: TABELLONE COMPLETO PALINSESTO SCOMMESSE ---
-    st.write("---")
-    st.subheader("🎰 🌟 PALINSESTO PREDIZIONI IA (Stile Betting Exchange)")
-    st.write("Il sistema analizza i mercati principali evidenziando in verde gli esiti matematicamente più probabili emersi dalle simulazioni.")
-
-    tab1, tab2, tab3 = st.tabs(["📊 Esiti Principali (1X2 / GG)", "🥅 Combo & Speciali", "🔢 Sistemi Multigol"])
-
-    with tab1:
-        st.markdown("#### **Mercati Principali**")
-        col_m1, col_m2, col_m3 = st.columns(3)
-        
-        max_1x2 = max(p_1, p_X, p_2)
-        with col_m1:
-            st.metric(label="Segno 1", value=f"{p_1:.1f}%", delta="TOP" if p_1 == max_1x2 else None)
-        with col_m2:
-            st.metric(label="Segno X", value=f"{p_X:.1f}%", delta="TOP" if p_X == max_1x2 else None)
-        with col_m3:
-            st.metric(label="Segno 2", value=f"{p_2:.1f}%", delta="TOP" if p_2 == max_1x2 else None)
-            
-        st.write("---")
-        col_gg1, col_gg2 = st.columns(2)
-        with col_gg1:
-            st.metric(label="Goal (Entrambe Segnano)", value=f"{p_GG:.1f}%", delta="CONSIGLIATO" if p_GG > p_NG else None, delta_color="normal")
-        with col_gg2:
-            st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG else None, delta_color="normal")
-
-    with tab2:
-        st.markdown("#### **Mercati Speciali & Combo**")
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            st.write("**Simulazione Esito**")
-            st.info(f"🏠 **{squadra_casa} vince a 0**: {p_casa_vince_0:.1f}%")
-        with col_c2:
-            quota_casa_0 = 100 / p_casa_vince_0 if p_casa_vince_0 > 0 else 99.0
-            st.write("**Calcolo Quota di Valore Pura (No Banco)**")
-            st.code(f"Quota minima consigliata per il 'Vince a 0': @{quota_casa_0:.2f}")
-
-    with tab3:
-        st.markdown("#### **Pannello Quote Multigol (Fasce Gol Attese)**")
-        col_mg1, col_mg2, col_mg3 = st.columns(3)
-        
-        with col_mg1:
-            st.markdown("**Multigol Totali Incontro**")
-            st.info(f"🔢 Multigol 1-2: **{m_1_2:.1f}%**")
-            st.info(f"🔢 Multigol 2-4: **{m_2_4:.1f}%**")
-            st.info(f"🔢 Multigol 3-5: **{m_3_5:.1f}%**")
-            
-        with col_mg2:
-            st.markdown(f"**Multigol {squadra_casa} (Casa)**")
-            st.write(f"🏠 Multigol Casa 1-2: **{m_c_1_2:.1f}%**")
-            st.write(f"🏠 Multigol Casa 2-3: **{m_c_2_3:.1f}%**")
-            
-        with col_mg3:
-            st.markdown(f"**Multigol {squadra_ospite} (Ospite)**")
-            st.write(f"🚀 Multigol Ospite 1-2: **{m_o_1_2:.1f}%**")
-            st.write(f"🚀 Multigol Ospite 2-3: **{m_o_2_3:.1f}%**")
+    p_NG
