@@ -5,10 +5,12 @@ import requests
 # 1. CHIAVE API PERSONALE
 API_KEY = "a1c62f5581c674de91fd5d4e185caebf"
 
+st.set_page_config(page_title="Predittore Super-IA PRO", page_icon="⚽", layout="wide")
+
 st.title("⚽ Predittore Super-IA PRO: Match, Player, Angoli & Arbitri")
 st.write("Configurazione Mondiale 2026 & Serie A. Trova l'arbitro ufficiale del match e selezionalo per calcolare i cartellini!")
 
-# 2. DIZIONARIO COMPLETO (Tutte le 48 Nazionali del Mondiale 2026 + Serie A)
+# 2. DIZIONARIO COMPLETO (Tutte le 48 Nazionali del Mondiale 2026 + Serie A - Norvegia Inclusa!)
 DIZIONARIO_SQUADRE = {
     # --- SERIE A ---
     "Atalanta (Serie A)": 499, "Bologna (Serie A)": 504, "Cagliari (Serie A)": 490,
@@ -30,7 +32,7 @@ DIZIONARIO_SQUADRE = {
     "Germania (Mondiale)": 25, "Ghana (Mondiale)": 1504, "Giappone (Mondiale)": 1024,
     "Honduras (Mondiale)": 1109, "Inghilterra (Mondiale)": 10, "Iran (Mondiale)": 22,
     "Iraq (Mondiale)": 1523, "Italia (Mondiale)": 31, "Marocco (Mondiale)": 30,
-    "Messico (Mondiale)": 16, "Nigeria (Mondiale)": 34, "Nuova Zelanda (Mondiale)": 2282,
+    "Messico (Mondiale)": 16, "Nigeria (Mondiale)": 34, "Norvegia (Mondiale)": 23, "Nuova Zelanda (Mondiale)": 2282,
     "Olanda (Mondiale)": 11, "Panama (Mondiale)": 1105, "Paraguay (Mondiale)": 14,
     "Perù (Mondiale)": 15, "Polonia (Mondiale)": 24, "Portogallo (Mondiale)": 27,
     "Qatar (Mondiale)": 1524, "Repubblica Ceca (Mondiale)": 771, "Senegal (Mondiale)": 1501,
@@ -121,11 +123,11 @@ tiri_attesi = tiri_base * ((gol_subiti_ospite if giocatore_scelto in recupera_gi
 falli_subiti_base = 1.9 if giocatore_scelto in recupera_giocatori_live(id_casa) else 1.6
 falli_attesi = falli_subiti_base * ((gol_subiti_ospite if giocatore_scelto in recupera_giocatori_live(id_casa) else gol_subiti_casa) / 0.9)
 
-# 6. ELABORAZIONE DELLE PROBABILITÀ STATISTICHE
+# 6. ELABORAZIONE DELLE PROBABILITÀ STATISTICHE VIA SIMULAZIONE MONTE CARLO
 if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     simulazioni = 100000
     
-    # Simulazione Risultato Esatto
+    # Simulazione Risultato Esatto (Distribuzione di Poisson)
     lambda_casa = gol_fatti_casa * (gol_subiti_ospite / 1.0)
     lambda_ospite = gol_fatti_ospite * (gol_subiti_casa / 1.0)
     gol_casa_sim = np.random.poisson(lambda_casa, simulazioni)
@@ -152,7 +154,7 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     prob_over_3_5_cartellini = (np.sum(cartellini_sim >= 4) / simulazioni) * 100
     prob_over_4_5_cartellini = (np.sum(cartellini_sim >= 5) / simulazioni) * 100
 
-    # --- CALCOLO NUOVI MERCATI SCOMMESSE ---
+    # --- ELABORAZIONE MERCATI SCOMMESSE ---
     tot_gol_sim = gol_casa_sim + gol_ospite_sim
 
     # 1X2
@@ -167,18 +169,18 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     # Casa Vince a 0
     p_casa_vince_0 = (np.sum((gol_casa_sim > gol_ospite_sim) & (gol_ospite_sim == 0)) / simulazioni) * 100
 
-    # Multigol Totale
+    # Multigol Totale Match
     m_1_2 = (np.sum((tot_gol_sim >= 1) & (tot_gol_sim <= 2)) / simulazioni) * 100
     m_2_4 = (np.sum((tot_gol_sim >= 2) & (tot_gol_sim <= 4)) / simulazioni) * 100
     m_3_5 = (np.sum((tot_gol_sim >= 3) & (tot_gol_sim <= 5)) / simulazioni) * 100
 
-    # Multigol Casa / Ospite
+    # Multigol Squadre
     m_c_1_2 = (np.sum((gol_casa_sim >= 1) & (gol_casa_sim <= 2)) / simulazioni) * 100
     m_c_2_3 = (np.sum((gol_casa_sim >= 2) & (gol_casa_sim <= 3)) / simulazioni) * 100
     m_o_1_2 = (np.sum((gol_ospite_sim >= 1) & (gol_ospite_sim <= 2)) / simulazioni) * 100
     m_o_2_3 = (np.sum((gol_ospite_sim >= 2) & (gol_ospite_sim <= 3)) / simulazioni) * 100
 
-    # 7. DISPLAY RISULTATI CLASSICI
+    # 7. DISPLAY SEZIONE RESOCONTO GENERALE
     st.write("---")
     c1, c2, c3 = st.columns(3)
     
@@ -196,23 +198,22 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
         st.info(f"Probabilità Subisce 2+ Falli: **{prob_falli_1_5:.1f}%**")
         
     with c3:
-        st.write(f"### 🟨 Sanzioni & Cartellini")
+        st.write("### 🟨 Sanzioni & Cartellini")
         st.write(f"Fischietto: *{arbitro_scelto}*")
         st.warning(f"Probabilità Over 3.5 Cartellini: **{prob_over_3_5_cartellini:.1f}%**")
         st.warning(f"Probabilità Over 4.5 Cartellini: **{prob_over_4_5_cartellini:.1f}%**")
 
-    # --- 8. NUOVA SEZIONE: TABELLONE QUOTE & VALUE BET STYLE ---
+    # --- 8. SEZIONE: TABELLONE COMPLETO PALINSESTO SCOMMESSE ---
     st.write("---")
     st.subheader("🎰 🌟 PALINSESTO PREDIZIONI IA (Stile Betting Exchange)")
-    st.write("Le percentuali indicano la probabilità calcolata dalla simulazione. I mercati evidenziati in verde sono i più probabili del rispettivo blocco.")
+    st.write("Il sistema analizza i mercati principali evidenziando in verde gli esiti matematicamente più probabili emersi dalle simulazioni.")
 
-    tab1, tab2, tab3 = st.tabs(["📊 Esiti Principali", "🥅 Mercati Gol & Combo", "🔢 Multigol Dettaglio"])
+    tab1, tab2, tab3 = st.tabs(["📊 Esiti Principali (1X2 / GG)", "🥅 Combo & Speciali", "🔢 Sistemi Multigol"])
 
     with tab1:
-        st.markdown("#### **Mercato 1X2 & Goal/NoGoal**")
+        st.markdown("#### **Mercati Principali**")
         col_m1, col_m2, col_m3 = st.columns(3)
         
-        # Trova l'esito 1X2 più probabile per evidenziarlo
         max_1x2 = max(p_1, p_X, p_2)
         with col_m1:
             st.metric(label="Segno 1", value=f"{p_1:.1f}%", delta="TOP" if p_1 == max_1x2 else None)
@@ -221,6 +222,7 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
         with col_m3:
             st.metric(label="Segno 2", value=f"{p_2:.1f}%", delta="TOP" if p_2 == max_1x2 else None)
             
+        st.write("---")
         col_gg1, col_gg2 = st.columns(2)
         with col_gg1:
             st.metric(label="Goal (Entrambe Segnano)", value=f"{p_GG:.1f}%", delta="CONSIGLIATO" if p_GG > p_NG else None, delta_color="normal")
@@ -228,33 +230,32 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
             st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG else None, delta_color="normal")
 
     with tab2:
-        st.markdown("#### **Combo & Speciali Squadra**")
+        st.markdown("#### **Mercati Speciali & Combo Pulite**")
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            st.write("**Esiti Speciali Casa**")
-            st.info(f"🏠 **Casa vince a 0**: {p_casa_vince_0:.1f}%")
+            st.write("**Simulazione Esito**")
+            st.info(f"🏠 **{squadra_casa} vince a 0**: {p_casa_vince_0:.1f}%")
         with col_c2:
-            # Calcolo rapido di una quota simulata pura basata sulla probabilità (100 / prob)
             quota_casa_0 = 100 / p_casa_vince_0 if p_casa_vince_0 > 0 else 99.0
-            st.write("**Quota Fair Stimata (Senza Aggio)**")
-            st.code(f"Quota per Casa vince a 0: @{quota_casa_0:.2f}")
+            st.write("**Calcolo Quota di Valore Pura (No Banco)**")
+            st.code(f"Quota minima consigliata per il 'Vince a 0': @{quota_casa_0:.2f}")
 
     with tab3:
-        st.markdown("#### **Sotto-Sistema Multigol**")
+        st.markdown("#### **Pannello Quote Multigol (Fasce Gol Attese)**")
         col_mg1, col_mg2, col_mg3 = st.columns(3)
         
         with col_mg1:
-            st.markdown("**Multigol Match**")
-            st.write(f"🔢 Multigol 1-2: **{m_1_2:.1f}%**")
-            st.write(f"🔢 Multigol 2-4: **{m_2_4:.1f}%**")
-            st.write(f"🔢 Multigol 3-5: **{m_3_5:.1f}%**")
+            st.markdown("**Multigol Totali Incontro**")
+            st.info(f"🔢 Multigol 1-2: **{m_1_2:.1f}%**")
+            st.info(f"🔢 Multigol 2-4: **{m_2_4:.1f}%**")
+            st.info(f"🔢 Multigol 3-5: **{m_3_5:.1f}%**")
             
         with col_mg2:
-            st.markdown(f"**Multigol {squadra_casa}**")
+            st.markdown(f"**Multigol {squadra_casa} (Casa)**")
             st.write(f"🏠 Multigol Casa 1-2: **{m_c_1_2:.1f}%**")
             st.write(f"🏠 Multigol Casa 2-3: **{m_c_2_3:.1f}%**")
             
         with col_mg3:
-            st.markdown(f"**Multigol {squadra_ospite}**")
+            st.markdown(f"**Multigol {squadra_ospite} (Ospite)**")
             st.write(f"🚀 Multigol Ospite 1-2: **{m_o_1_2:.1f}%**")
             st.write(f"🚀 Multigol Ospite 2-3: **{m_o_2_3:.1f}%**")
