@@ -56,7 +56,7 @@ DIZIONARIO_ARBITRI = {
     "Anthony Taylor (ENG)": {"media_cartellini": 4.8, "severita": "Alta"}
 }
 
-# 4. RECUPERO DATI LIVE CON CACHE
+# 4. RECUPERO DATI LIVE CON CACHE E FALLBACK INTELLIGENTE PER SQUADRA
 @st.cache_data(ttl=86400)
 def recupera_giocatori_live(team_id):
     url = f"https://v3.football.api-sports.io/players/squads?team={team_id}"
@@ -68,10 +68,10 @@ def recupera_giocatori_live(team_id):
             return [g["name"] for g in lista_calc if g["position"] in ["Attacker", "Midfielder"]]
     except:
         pass
-    return ["Giocatore Star 1", "Giocatore Star 2"]
+    return ["Campione Attacco 1", "Stella Centrocampo 2"]
 
 @st.cache_data(ttl=86400)
-def recupera_statistiche_live(team_id, is_naz):
+def recupera_statistiche_live(team_name, team_id, is_naz):
     league_id = 1 if is_naz else 135
     season = 2026 if is_naz else 2025
     url = f"https://v3.football.api-sports.io/teams/statistics?league={league_id}&season={season}&team={team_id}"
@@ -81,10 +81,27 @@ def recupera_statistiche_live(team_id, is_naz):
         if risposta.get("response"):
             fatti = risposta["response"]["goals"]["for"]["average"]["total"]
             subiti = risposta["response"]["against"]["average"]["total"]
-            return float(fatti), float(subiti)
+            if fatti and subiti:
+                return float(fatti), float(subiti)
     except:
         pass
-    return (1.8, 1.0) if not is_naz else (2.1, 0.7)
+        
+    # --- SISTEMA DI FALLBACK DIFFERENZIATO SE L'API NON RISPONDE ---
+    # Evita che tutte le squadre abbiano le stesse identiche statistiche fisse
+    name_lower = team_name.lower()
+    
+    # Top Team (Mondiali o Serie A d'alta classifica)
+    if any(top in name_lower for top in ["inter", "juventus", "milan", "atalanta", "napoli", "argentina", "francia", "brasile", "spagna", "inghilterra", "portogallo"]):
+        return 2.2, 0.8
+    # Team di fascia medio-alta (es. Norvegia di Haaland, Lazio, Roma, Olanda, Croazia)
+    elif any(mid_high in name_lower for top in ["lazio", "roma", "fiorentina", "bologna", "norvegia", "olanda", "croazia", "germania", "belgio", "colombia", "uruguay"]):
+        return 1.8, 1.1
+    # Team di fascia media / salvezza
+    elif any(mid in name_lower for mid in ["torino", "udinese", "verona", "genoa", "parma", "cagliari", "como", "empoli", "stati uniti", "messico", "marocco", "giappone"]):
+        return 1.2, 1.4
+    # Fanalini di coda / Nazionali minori
+    else:
+        return 0.9, 1.8
 
 # 5. INTERFACCIA GRAFICA DI SELEZIONE
 st.subheader("📋 1. Seleziona le Squadre del Match")
@@ -94,12 +111,13 @@ squadre_disponibili = sorted(list(DIZIONARIO_SQUADRE.keys()))
 with col1:
     squadra_casa = st.selectbox("Squadra in Casa", squadre_disponibili, index=0)
     id_casa = DIZIONARIO_SQUADRE[squadra_casa]
-    gol_fatti_casa, gol_subiti_casa = recupera_statistiche_live(id_casa, "Mondiale" in squadra_casa)
+    # Passiamo il nome della squadra alla funzione per attivare il fallback personalizzato
+    gol_fatti_casa, gol_subiti_casa = recupera_statistiche_live(squadra_casa, id_casa, "Mondiale" in squadra_casa)
 
 with col2:
     squadra_ospite = st.selectbox("Squadra Ospite", squadre_disponibili, index=1)
     id_ospite = DIZIONARIO_SQUADRE[squadra_ospite]
-    gol_fatti_ospite, gol_subiti_ospite = recupera_statistiche_live(id_ospite, "Mondiale" in squadra_ospite)
+    gol_fatti_ospite, gol_subiti_ospite = recupera_statistiche_live(squadra_ospite, id_ospite, "Mondiale" in squadra_ospite)
 
 st.write("---")
 
@@ -118,18 +136,18 @@ with col_g:
 
 # Calcolo tiri e falli attesi
 tiri_base = 2.8 if giocatore_scelto in recupera_giocatori_live(id_casa) else 2.1
-tiri_attesi = tiri_base * ((gol_subiti_ospite if giocatore_scelto in recupera_giocatori_live(id_casa) else gol_subiti_casa) / 1.0)
+tiri_attesi = tiri_base * (gol_subiti_ospite / 1.1)
 
 falli_subiti_base = 1.9 if giocatore_scelto in recupera_giocatori_live(id_casa) else 1.6
-falli_attesi = falli_subiti_base * ((gol_subiti_ospite if giocatore_scelto in recupera_giocatori_live(id_casa) else gol_subiti_casa) / 0.9)
+falli_attesi = falli_subiti_base * (gol_subiti_ospite / 1.0)
 
 # 6. ELABORAZIONE DELLE PROBABILITÀ STATISTICHE VIA SIMULAZIONE MONTE CARLO
 if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     simulazioni = 100000
     
-    # Simulazione Risultato Esatto (Distribuzione di Poisson)
-    lambda_casa = gol_fatti_casa * (gol_subiti_ospite / 1.0)
-    lambda_ospite = gol_fatti_ospite * (gol_subiti_casa / 1.0)
+    # Simulazione Risultato Esatto (Distribuzione di Poisson basata sui nuovi parametri differenziati)
+    lambda_casa = gol_fatti_casa * (gol_subiti_ospite / 1.2)
+    lambda_ospite = gol_fatti_ospite * (gol_subiti_casa / 1.2)
     gol_casa_sim = np.random.poisson(lambda_casa, simulazioni)
     gol_ospite_sim = np.random.poisson(lambda_ospite, simulazioni)
     
@@ -230,7 +248,7 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
             st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG else None, delta_color="normal")
 
     with tab2:
-        st.markdown("#### **Mercati Speciali & Combo Pulite**")
+        st.markdown("#### **Mercati Speciali & Combo Combo**")
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             st.write("**Simulazione Esito**")
