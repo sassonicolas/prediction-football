@@ -10,6 +10,14 @@ st.set_page_config(page_title="Predittore Super-IA PRO", page_icon="⚽", layout
 st.title("⚽ Predittore Super-IA PRO: Match, Player, Angoli & Arbitri")
 st.write("Configurazione Mondiale 2026 & Serie A. Trova l'arbitro ufficiale del match e selezionalo per calcolare i cartellini!")
 
+# --- INIZIALIZZAZIONE DI SICUREZZA VARIABILI (Previene NameError) ---
+p_1, p_X, p_2, p_GG, p_NG, p_casa_vince_0 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+m_1_2, m_2_4, m_3_5 = 0.0, 0.0, 0.0
+m_c_1_2, m_c_2_3, m_o_1_2, m_o_2_3 = 0.0, 0.0, 0.0, 0.0
+angoli_attesi, falli_attesi = 0.0, 0.0
+prob_over_8_5_angoli, prob_over_9_5_angoli, prob_falli_1_5, prob_over_3_5_cartellini, prob_over_4_5_cartellini = 0.0, 0.0, 0.0, 0.0, 0.0
+risultati_ordinati = [("0 - 0", 0.0), ("1 - 1", 0.0)]
+
 # 2. DIZIONARIO COMPLETO (Tutte le 48 Nazionali del Mondiale 2026 + Serie A - Norvegia Inclusa!)
 DIZIONARIO_SQUADRE = {
     # --- SERIE A ---
@@ -72,7 +80,6 @@ def recupera_giocatori_live(team_name, team_id):
     except:
         pass
     
-    # --- SISTEMA DI FALLBACK SQUADRA PER SQUADRA (Aggiunta Norvegia e Top Player) ---
     name_lower = team_name.lower()
     if "norvegia" in name_lower:
         return ["Erling Haaland", "Martin Ødegaard", "Antonio Nusa", "Alexander Sørloth"]
@@ -91,7 +98,7 @@ def recupera_giocatori_live(team_name, team_id):
     elif "inghilterra" in name_lower:
         return ["Harry Kane", "Jude Bellingham", "Bukayo Saka", "Phil Foden"]
     
-    return [f"Stella Attacco {team_name}", f"Chiave Centrocampo {team_name}"]
+    return [f"Stella Attacco ({team_name})", f"Chiave Centrocampo ({team_name})"]
 
 @st.cache_data(ttl=86400)
 def recupera_statistiche_live(team_name, team_id, is_naz):
@@ -136,26 +143,23 @@ with col2:
 
 st.write("---")
 
-# Sezione di scelta Arbitro e Giocatore messi in evidenza
 st.subheader("🏁 2. Designazione Arbitro & Giocatore Chiave")
 col_a, col_g = st.columns(2)
 
 with col_a:
     arbitro_scelto = st.selectbox("Chi arbitra l'incontro?", list(DIZIONARIO_ARBITRI.keys()))
     dati_arbitro = DIZIONARIO_ARBITRI[arbitro_scelto]
-    st.info(f"📊 **Stile di arbitraggio:** Stile {dati_arbitro['severita']} | Media: {dati_arbitro['media_cartellini']} gialli/partita")
+    st.info(f"📊 **Stile di arbitraggio:** {dati_arbitro['severita']} | Media: {dati_arbitro['media_cartellini']} gialli/partita")
 
 with col_g:
-    # Passiamo sia il nome che l'id per attivare il corretto fallback dei giocatori reali
     lista_casa = recupera_giocatori_live(squadra_casa, id_casa)
     lista_ospite = recupera_giocatori_live(squadra_ospite, id_ospite)
     tutti_giocatori = lista_casa + lista_ospite
     giocatore_scelto = st.selectbox("Scegli il calciatore da monitorare:", tutti_giocatori)
 
-# Calcolo tiri e falli attesi
+# Calcoli base preventivi
 tiri_base = 2.8 if giocatore_scelto in lista_casa else 2.1
 tiri_attesi = tiri_base * (gol_subiti_ospite / 1.1)
-
 falli_subiti_base = 1.9 if giocatore_scelto in lista_casa else 1.6
 falli_attesi = falli_subiti_base * (gol_subiti_ospite / 1.0)
 
@@ -163,7 +167,6 @@ falli_attesi = falli_subiti_base * (gol_subiti_ospite / 1.0)
 if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     simulazioni = 100000
     
-    # Simulazione Risultato Esatto (Distribuzione di Poisson)
     lambda_casa = gol_fatti_casa * (gol_subiti_ospite / 1.2)
     lambda_ospite = gol_fatti_ospite * (gol_subiti_casa / 1.2)
     gol_casa_sim = np.random.poisson(lambda_casa, simulazioni)
@@ -175,29 +178,110 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
         risultati[ris] = risultati.get(ris, 0) + 1
     risultati_ordinati = sorted(risultati.items(), key=lambda x: x[1], reverse=True)
     
-    # Simulazione Angoli
     angoli_attesi = 5.2 * (gol_fatti_casa / 1.5) + 4.3 * (gol_fatti_ospite / 1.5)
     angoli_sim = np.random.poisson(angoli_attesi, simulazioni)
     prob_over_8_5_angoli = (np.sum(angoli_sim >= 9) / simulazioni) * 100
     prob_over_9_5_angoli = (np.sum(angoli_sim >= 10) / simulazioni) * 100
     
-    # Simulazione Prestazioni Giocatore
     falli_sim = np.random.poisson(falli_attesi, simulazioni)
     prob_falli_1_5 = (np.sum(falli_sim >= 2) / simulazioni) * 100
     
-    # Simulazione Cartellini basata sull'Arbitro
     cartellini_sim = np.random.poisson(dati_arbitro["media_cartellini"], simulazioni)
     prob_over_3_5_cartellini = (np.sum(cartellini_sim >= 4) / simulazioni) * 100
     prob_over_4_5_cartellini = (np.sum(cartellini_sim >= 5) / simulazioni) * 100
 
-    # --- ELABORAZIONE MERCATI SCOMMESSE ---
     tot_gol_sim = gol_casa_sim + gol_ospite_sim
-
-    # 1X2
     p_1 = (np.sum(gol_casa_sim > gol_ospite_sim) / simulazioni) * 100
     p_X = (np.sum(gol_casa_sim == gol_ospite_sim) / simulazioni) * 100
     p_2 = (np.sum(gol_casa_sim < gol_ospite_sim) / simulazioni) * 100
-
-    # GG / NG
     p_GG = (np.sum((gol_casa_sim > 0) & (gol_ospite_sim > 0)) / simulazioni) * 100
-    p_NG
+    p_NG = 100 - p_GG
+    p_casa_vince_0 = (np.sum((gol_casa_sim > gol_ospite_sim) & (gol_ospite_sim == 0)) / simulazioni) * 100
+
+    m_1_2 = (np.sum((tot_gol_sim >= 1) & (tot_gol_sim <= 2)) / simulazioni) * 100
+    m_2_4 = (np.sum((tot_gol_sim >= 2) & (tot_gol_sim <= 4)) / simulazioni) * 100
+    m_3_5 = (np.sum((tot_gol_sim >= 3) & (tot_gol_sim <= 5)) / simulazioni) * 100
+
+    m_c_1_2 = (np.sum((gol_casa_sim >= 1) & (gol_casa_sim <= 2)) / simulazioni) * 100
+    m_c_2_3 = (np.sum((gol_casa_sim >= 2) & (gol_casa_sim <= 3)) / simulazioni) * 100
+    m_o_1_2 = (np.sum((gol_ospite_sim >= 1) & (gol_ospite_sim <= 2)) / simulazioni) * 100
+    m_o_2_3 = (np.sum((gol_ospite_sim >= 2) & (gol_ospite_sim <= 3)) / simulazioni) * 100
+
+# 7. DISPLAY SEZIONE RESOCONTO GENERALE
+st.write("---")
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.write("### 🏆 Match & Angoli")
+    st.success(f"**Top Risultato:** {risultati_ordinati[0][0]} ({(risultati_ordinati[0][1]/100000)*100 if risultati_ordinati[0][1] > 0 else 0:.1f}%)")
+    st.success(f"**Secondo Migliore:** {risultati_ordinati[1][0]} ({(risultati_ordinati[1][1]/100000)*100 if risultati_ordinati[1][1] > 0 else 0:.1f}%)")
+    st.write(f"Stima Corner Totali: **{angoli_attesi:.1f}**")
+    st.info(f"Probabilità Over 8.5 Angoli: **{prob_over_8_5_angoli:.1f}%**")
+    st.info(f"Probabilità Over 9.5 Angoli: **{prob_over_9_5_angoli:.1f}%**")
+    
+with c2:
+    st.write(f"### 📈 Statistiche {giocatore_scelto}")
+    st.write(f"Falli subiti stimati: **{falli_attesi:.1f}**")
+    st.info(f"Probabilità Subisce 2+ Falli: **{prob_falli_1_5:.1f}%**")
+    
+with c3:
+    st.write("### 🟨 Sanzioni & Cartellini")
+    st.write(f"Fischietto: *{arbitro_scelto}*")
+    st.warning(f"Probabilità Over 3.5 Cartellini: **{prob_over_3_5_cartellini:.1f}%**")
+    st.warning(f"Probabilità Over 4.5 Cartellini: **{prob_over_4_5_cartellini:.1f}%**")
+
+# 8. SEZIONE: TABELLONE COMPLETO PALINSESTO SCOMMESSE
+st.write("---")
+st.subheader("🎰 🌟 PALINSESTO PREDIZIONI IA (Stile Betting Exchange)")
+
+tab1, tab2, tab3 = st.tabs(["📊 Esiti Principali (1X2 / GG)", "🥅 Combo & Speciali", "🔢 Sistemi Multigol"])
+
+with tab1:
+    st.markdown("#### **Mercati Principali**")
+    col_m1, col_m2, col_m3 = st.columns(3)
+    
+    max_1x2 = max(p_1, p_X, p_2)
+    with col_m1:
+        st.metric(label="Segno 1", value=f"{p_1:.1f}%", delta="TOP" if p_1 == max_1x2 and p_1 > 0 else None)
+    with col_m2:
+        st.metric(label="Segno X", value=f"{p_X:.1f}%", delta="TOP" if p_X == max_1x2 and p_X > 0 else None)
+    with col_m3:
+        st.metric(label="Segno 2", value=f"{p_2:.1f}%", delta="TOP" if p_2 == max_1x2 and p_2 > 0 else None)
+        
+    st.write("---")
+    col_gg1, col_gg2 = st.columns(2)
+    with col_gg1:
+        st.metric(label="Goal (Entrambe Segnano)", value=f"{p_GG:.1f}%", delta="CONSIGLIATO" if p_GG > p_NG and p_GG > 0 else None, delta_color="normal")
+    with col_gg2:
+        st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG and p_NG > 0 else None, delta_color="normal")
+
+with tab2:
+    st.markdown("#### **Mercati Speciali & Combo**")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        st.write("**Simulazione Esito**")
+        st.info(f"🏠 **{squadra_casa} vince a 0**: {p_casa_vince_0:.1f}%")
+    with col_c2:
+        quota_casa_0 = 100 / p_casa_vince_0 if p_casa_vince_0 > 0 else 99.0
+        st.write("**Calcolo Quota di Valore Pura (No Banco)**")
+        st.code(f"Quota minima consigliata per il 'Vince a 0': @{quota_casa_0:.2f}")
+
+with tab3:
+    st.markdown("#### **Pannello Quote Multigol (Fasce Gol Attese)**")
+    col_mg1, col_mg2, col_mg3 = st.columns(3)
+    
+    with col_mg1:
+        st.markdown("**Multigol Totali Incontro**")
+        st.info(f"🔢 Multigol 1-2: **{m_1_2:.1f}%**")
+        st.info(f"🔢 Multigol 2-4: **{m_2_4:.1f}%**")
+        st.info(f"🔢 Multigol 3-5: **{m_3_5:.1f}%**")
+        
+    with col_mg2:
+        st.markdown(f"**Multigol {squadra_casa} (Casa)**")
+        st.write(f"🏠 Multigol Casa 1-2: **{m_c_1_2:.1f}%**")
+        st.write(f"🏠 Multigol Casa 2-3: **{m_c_2_3:.1f}%**")
+        
+    with col_mg3:
+        st.markdown(f"**Multigol {squadra_ospite} (Ospite)**")
+        st.write(f"🚀 Multigol Ospite 1-2: **{m_o_1_2:.1f}%**")
+        st.write(f"🚀 Multigol Ospite 2-3: **{m_o_2_3:.1f}%**")
