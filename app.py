@@ -40,7 +40,7 @@ DIZIONARIO_SQUADRE = {
     "Svizzera (Mondiale)": 15, "Tunisia (Mondiale)": 29, "Uruguay (Mondiale)": 8
 }
 
-# 3. DATABASE ARBITRI ATTUALI E INTERNAZIONALI
+# 3. DATABASE ARBITRI ATTUALI E INTERNAZIONALI (João Pedro Pinheiro Aggiunto!)
 DIZIONARIO_ARBITRI = {
     "Davide Massa (ITA)": {"media_cartellini": 5.1, "severita": "Molto Alta"},
     "Marco Guida (ITA)": {"media_cartellini": 4.2, "severita": "Media"},
@@ -53,7 +53,8 @@ DIZIONARIO_ARBITRI = {
     "Felix Zwayer (GER)": {"media_cartellini": 4.6, "severita": "Alta"},
     "Wilmar Roldán (COL)": {"media_cartellini": 5.8, "severita": "Estrema"},
     "César Ramos (MEX)": {"media_cartellini": 4.3, "severita": "Media"},
-    "Anthony Taylor (ENG)": {"media_cartellini": 4.8, "severita": "Alta"}
+    "Anthony Taylor (ENG)": {"media_cartellini": 4.8, "severita": "Alta"},
+    "João Pedro Pinheiro (POR)": {"media_cartellini": 4.9, "severita": "Alta"}
 }
 
 # 4. RECUPERO DATI LIVE CON CACHE E FALLBACK INTELLIGENTE PER SQUADRA
@@ -86,7 +87,7 @@ def recupera_statistiche_live(team_name, team_id, is_naz):
     except:
         pass
         
-    # --- SISTEMA DI FALLBACK CORRETTO (Risolto bug screenshot) ---
+    # --- SISTEMA DI FALLBACK CORRETTO ---
     name_lower = team_name.lower()
     
     # Top Team
