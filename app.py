@@ -5,7 +5,7 @@ import requests
 # 1. CHIAVE API PERSONALE
 API_KEY = "a1c62f5581c674de91fd5d4e185caebf"
 
-st.title("⚽ SASSO BET - PREDICTION MONDIALI & SERIE A")
+st.title("⚽ Predittore Super-IA PRO: Match, Player, Angoli & Arbitri")
 st.write("Configurazione Mondiale 2026 & Serie A. Trova l'arbitro ufficiale del match e selezionalo per calcolare i cartellini!")
 
 # 2. DIZIONARIO COMPLETO (Tutte le 48 Nazionali del Mondiale 2026 + Serie A)
@@ -152,7 +152,33 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
     prob_over_3_5_cartellini = (np.sum(cartellini_sim >= 4) / simulazioni) * 100
     prob_over_4_5_cartellini = (np.sum(cartellini_sim >= 5) / simulazioni) * 100
 
-    # 7. DISPLAY RISULTATI
+    # --- CALCOLO NUOVI MERCATI SCOMMESSE ---
+    tot_gol_sim = gol_casa_sim + gol_ospite_sim
+
+    # 1X2
+    p_1 = (np.sum(gol_casa_sim > gol_ospite_sim) / simulazioni) * 100
+    p_X = (np.sum(gol_casa_sim == gol_ospite_sim) / simulazioni) * 100
+    p_2 = (np.sum(gol_casa_sim < gol_ospite_sim) / simulazioni) * 100
+
+    # GG / NG
+    p_GG = (np.sum((gol_casa_sim > 0) & (gol_ospite_sim > 0)) / simulazioni) * 100
+    p_NG = 100 - p_GG
+
+    # Casa Vince a 0
+    p_casa_vince_0 = (np.sum((gol_casa_sim > gol_ospite_sim) & (gol_ospite_sim == 0)) / simulazioni) * 100
+
+    # Multigol Totale
+    m_1_2 = (np.sum((tot_gol_sim >= 1) & (tot_gol_sim <= 2)) / simulazioni) * 100
+    m_2_4 = (np.sum((tot_gol_sim >= 2) & (tot_gol_sim <= 4)) / simulazioni) * 100
+    m_3_5 = (np.sum((tot_gol_sim >= 3) & (tot_gol_sim <= 5)) / simulazioni) * 100
+
+    # Multigol Casa / Ospite
+    m_c_1_2 = (np.sum((gol_casa_sim >= 1) & (gol_casa_sim <= 2)) / simulazioni) * 100
+    m_c_2_3 = (np.sum((gol_casa_sim >= 2) & (gol_casa_sim <= 3)) / simulazioni) * 100
+    m_o_1_2 = (np.sum((gol_ospite_sim >= 1) & (gol_ospite_sim <= 2)) / simulazioni) * 100
+    m_o_2_3 = (np.sum((gol_ospite_sim >= 2) & (gol_ospite_sim <= 3)) / simulazioni) * 100
+
+    # 7. DISPLAY RISULTATI CLASSICI
     st.write("---")
     c1, c2, c3 = st.columns(3)
     
@@ -174,3 +200,61 @@ if st.button("🚀 GENERA ANALISI PREDIZIONE COMPLETA"):
         st.write(f"Fischietto: *{arbitro_scelto}*")
         st.warning(f"Probabilità Over 3.5 Cartellini: **{prob_over_3_5_cartellini:.1f}%**")
         st.warning(f"Probabilità Over 4.5 Cartellini: **{prob_over_4_5_cartellini:.1f}%**")
+
+    # --- 8. NUOVA SEZIONE: TABELLONE QUOTE & VALUE BET STYLE ---
+    st.write("---")
+    st.subheader("🎰 🌟 PALINSESTO PREDIZIONI IA (Stile Betting Exchange)")
+    st.write("Le percentuali indicano la probabilità calcolata dalla simulazione. I mercati evidenziati in verde sono i più probabili del rispettivo blocco.")
+
+    tab1, tab2, tab3 = st.tabs(["📊 Esiti Principali", "🥅 Mercati Gol & Combo", "🔢 Multigol Dettaglio"])
+
+    with tab1:
+        st.markdown("#### **Mercato 1X2 & Goal/NoGoal**")
+        col_m1, col_m2, col_m3 = st.columns(3)
+        
+        # Trova l'esito 1X2 più probabile per evidenziarlo
+        max_1x2 = max(p_1, p_X, p_2)
+        with col_m1:
+            st.metric(label="Segno 1", value=f"{p_1:.1f}%", delta="TOP" if p_1 == max_1x2 else None)
+        with col_m2:
+            st.metric(label="Segno X", value=f"{p_X:.1f}%", delta="TOP" if p_X == max_1x2 else None)
+        with col_m3:
+            st.metric(label="Segno 2", value=f"{p_2:.1f}%", delta="TOP" if p_2 == max_1x2 else None)
+            
+        col_gg1, col_gg2 = st.columns(2)
+        with col_gg1:
+            st.metric(label="Goal (Entrambe Segnano)", value=f"{p_GG:.1f}%", delta="CONSIGLIATO" if p_GG > p_NG else None, delta_color="normal")
+        with col_gg2:
+            st.metric(label="No Goal", value=f"{p_NG:.1f}%", delta="CONSIGLIATO" if p_NG > p_GG else None, delta_color="normal")
+
+    with tab2:
+        st.markdown("#### **Combo & Speciali Squadra**")
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            st.write("**Esiti Speciali Casa**")
+            st.info(f"🏠 **Casa vince a 0**: {p_casa_vince_0:.1f}%")
+        with col_c2:
+            # Calcolo rapido di una quota simulata pura basata sulla probabilità (100 / prob)
+            quota_casa_0 = 100 / p_casa_vince_0 if p_casa_vince_0 > 0 else 99.0
+            st.write("**Quota Fair Stimata (Senza Aggio)**")
+            st.code(f"Quota per Casa vince a 0: @{quota_casa_0:.2f}")
+
+    with tab3:
+        st.markdown("#### **Sotto-Sistema Multigol**")
+        col_mg1, col_mg2, col_mg3 = st.columns(3)
+        
+        with col_mg1:
+            st.markdown("**Multigol Match**")
+            st.write(f"🔢 Multigol 1-2: **{m_1_2:.1f}%**")
+            st.write(f"🔢 Multigol 2-4: **{m_2_4:.1f}%**")
+            st.write(f"🔢 Multigol 3-5: **{m_3_5:.1f}%**")
+            
+        with col_mg2:
+            st.markdown(f"**Multigol {squadra_casa}**")
+            st.write(f"🏠 Multigol Casa 1-2: **{m_c_1_2:.1f}%**")
+            st.write(f"🏠 Multigol Casa 2-3: **{m_c_2_3:.1f}%**")
+            
+        with col_mg3:
+            st.markdown(f"**Multigol {squadra_ospite}**")
+            st.write(f"🚀 Multigol Ospite 1-2: **{m_o_1_2:.1f}%**")
+            st.write(f"🚀 Multigol Ospite 2-3: **{m_o_2_3:.1f}%**")
