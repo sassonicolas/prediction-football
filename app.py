@@ -7,7 +7,7 @@ API_KEY = "a1c62f5581c674de91fd5d4e185caebf"
 
 st.set_page_config(page_title="Predittore Super-IA PRO", page_icon="⚽", layout="wide")
 
-st.title("⚽ Predittore Super-IA PRO: Match, Player, Angoli & Arbitri")
+st.title("⚽ SASSO BET - PREDICTION MONDIALI & SERIE A")
 st.write("Configurazione Mondiale 2026 & Serie A. Trova l'arbitro ufficiale del match e selezionalo per calcolare i cartellini!")
 
 # --- INIZIALIZZAZIONE DI SICUREZZA VARIABILI (Previene NameError) ---
