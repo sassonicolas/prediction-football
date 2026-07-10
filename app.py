@@ -5,7 +5,7 @@ import requests
 # 1. CHIAVE API PERSONALE
 API_KEY = "a1c62f5581c674de91fd5d4e185caebf"
 
-st.title("⚽ Predittore IA - Mondiale 2026 & Serie A Live")
+st.title("⚽ SASSO BET - PREDICTION MONDIALE & SERIE A ")
 st.write("Seleziona una squadra della Serie A o una Nazionale del Mondiale 2026 per scaricare la rosa in tempo reale!")
 
 # 2. DIZIONARIO COMPLETO DELLE SQUADRE (AGGIORNATO CON FROSINONE)
