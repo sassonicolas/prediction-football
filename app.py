@@ -5,7 +5,7 @@ import requests
 # 1. CHIAVE API PERSONALE
 API_KEY = "a1c62f5581c674de91fd5d4e185caebf"
 
-st.title("⚽ Predittore Super-IA PRO: Match, Player, Angoli & Arbitri")
+st.title("⚽ SASSO BET - PREDICTION MONDIALI & SERIE A")
 st.write("Configurazione Mondiale 2026 & Serie A. Trova l'arbitro ufficiale del match e selezionalo per calcolare i cartellini!")
 
 # 2. DIZIONARIO COMPLETO (Tutte le 48 Nazionali del Mondiale 2026 + Serie A)
